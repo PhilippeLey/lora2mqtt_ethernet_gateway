@@ -23,7 +23,7 @@ byte NET_MAC[6] = {0xDE, 0xA2, 0xBE, 0x5F, 0x5E, 0x53};  // for ethernet (e.g. F
 // only if you use OTA (uncomment //#define OTA in ino file)
 const char *MY_OTA_NAME = "lora_2_mqtt_gateway"; // optional (access with esp_with_ota.local)
 // Linux Create Hasgh with: echo -n 'P@ssword1' | md5sum
-const char *MY_OTA_PASS_HASH = "3b9bc94f926b27dd204efd187fcca1aa";
+const char *MY_OTA_PASS_HASH = "";
 static bool eth_connected = false;
 
 /****** NTP settings ******/

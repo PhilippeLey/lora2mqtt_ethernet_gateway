@@ -38,13 +38,13 @@
 */
 
 /****** Defines to costumize the gateway ******/
+#define USE_SECRETS            // if secrets config in lib folder
 //#define SHOW_ALL_LORA_MESSAGES // normally only msgs 1 byte = GATEWAY_ADDR
-//#define USE_SECRETS            // if secrets config in lib folder
 #define DEBUG_SERIAL
 #define DEBUG_UDP
-#define NURSING                  // BTS-IoT student real live project
-//#define USE_MQTT_SECURITY
 #define USE_AES128_GCM
+//#define USE_MQTT_SECURITY
+#define NURSING                  // BTS-IoT student real live project
 
 // Important to be defined BEFORE including ETH.h for ETH.begin() to work.
 // Example RMII LAN8720 (Olimex, etc.)
@@ -150,7 +150,7 @@ void loop() {
   if (flag_lora_message_received) { // if receive flag is set by callback
     #ifdef SHOW_ALL_LORA_MESSAGES
       read_all_lora_message();
-      if ((msg_in_byte_counter != 0) {
+      if (msg_in_byte_counter != 0) {
         mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_ALL);
       }      
     #else
