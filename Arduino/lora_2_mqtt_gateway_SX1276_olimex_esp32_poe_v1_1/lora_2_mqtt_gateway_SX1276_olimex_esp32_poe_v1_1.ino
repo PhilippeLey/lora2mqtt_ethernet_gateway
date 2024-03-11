@@ -2,6 +2,7 @@
   lora_2_mqtt_gateway_SX1276_olimex_esp32_poe.ino 
 
   v1.0 2024-02-24
+  v1.1 2024-03-11 // new protokoll for Nursing; all msg + encryted visible 
 
   ---------------------------------------------------------------------------
   Copyright (C) 2024 Guy WEILER www.weigu.lu
@@ -39,7 +40,7 @@
 
 /****** Defines to costumize the gateway ******/
 #define USE_SECRETS            // if secrets config in lib folder
-//#define SHOW_ALL_LORA_MESSAGES // normally only msgs 1 byte = GATEWAY_ADDR
+#define SHOW_ALL_LORA_MESSAGES // normally only msgs 1 byte = GATEWAY_ADDR
 #define DEBUG_SERIAL
 #define DEBUG_UDP
 #define USE_AES128_GCM
@@ -148,33 +149,33 @@ void setup() {
 
 void loop() {    
   if (flag_lora_message_received) { // if receive flag is set by callback
-    #ifdef SHOW_ALL_LORA_MESSAGES
-      read_all_lora_message();
+    read_all_lora_message();
+    #ifdef SHOW_ALL_LORA_MESSAGES      
       if (msg_in_byte_counter != 0) {
         mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_ALL);
       }      
-    #else
-      read_gw_lora_message();
-      if (msg_in_byte_counter != 0) {
-        mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_GW);
-        #ifdef USE_AES128_GCM
-          if (decrypt_gw_lora_message() != -1) {
-            mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_GW_D);
-          }
-          else {
-            log("Decryption went wrong or not nursing project!\n");
-            nursing_flag = false;
-          }
-        #endif // USE_AES128_GCM        
-        #ifdef NURSING
-          if (nursing_flag == true) { // nursing
-            handle_nursing_lora_message();
-            memset(msg_in, 0, sizeof(msg_in)); // clear buffer
-            nursing_flag = false;
-          }
-        #endif // NURSING
-      }
     #endif // SHOW_ALL_LORA_MESSAGES
+    handle_gw_lora_message();
+    if (msg_in_byte_counter != 0) {
+      mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_GW);
+      #ifdef USE_AES128_GCM
+        if (decrypt_gw_lora_message() != -1) {
+          mqtt_publish_lora_message(MQTT_TOPIC_OUT + MQTT_TOPIC_GW_D);
+        }
+        else {
+          log("Decryption went wrong or not nursing project!\n");
+          nursing_flag = false;
+        }
+      #endif // USE_AES128_GCM        
+      #ifdef NURSING
+        if (nursing_flag == true) { // nursing
+          handle_nursing_lora_message();
+          memset(msg_in, 0, sizeof(msg_in)); // clear buffer
+          nursing_flag = false;
+        }
+      #endif // NURSING
+    }
+    
     flag_lora_message_received = false;           // set flag back to false
   }    
   ArduinoOTA.handle();  
@@ -216,8 +217,28 @@ void read_all_lora_message() {
   msg_in_byte_counter = counter;
 }
 
-// read a message and check if valid for the gateway
-void read_gw_lora_message() {
+// check if valid for the gateway and omit first byte (2 byte for nursing)
+void handle_gw_lora_message() {
+  if (msg_in[0] != GATEWAY_ADDR) {         // not for us! 
+    msg_in_byte_counter = 0;
+    return;
+  }      
+  for (byte i = 0; i<msg_in_byte_counter; i++) {
+    msg_in[i] = msg_in[i+1];        
+  }
+  msg_in_byte_counter -= 1;      
+  #ifdef NURSING        
+    if (msg_in[0] == 99) {
+      nursing_flag = true;      
+      for (byte i = 0; i<msg_in_byte_counter; i++) {
+        msg_in[i] = msg_in[i+1];        
+      }
+      msg_in_byte_counter -= 1;
+    }  
+  #endif // NURSING  
+}
+
+/*void read_gw_lora_message() {
   byte counter = 0;
   byte start = LoRa.read();            // get startbyte  
   if (start != GATEWAY_ADDR) {         // not for us! 
@@ -230,7 +251,7 @@ void read_gw_lora_message() {
       nursing_flag = true;    
     }
     else {
-      msg_in[counter];
+      msg_in[0] = ;
       counter++;
     }
   #endif // NURSING
@@ -241,7 +262,8 @@ void read_gw_lora_message() {
     yield();
   }  
   msg_in_byte_counter = counter;
-}
+}*/
+
 
 int decrypt_gw_lora_message() {
   String system_title = "";  // get system title (iv_text first 8 Byte)  
@@ -274,6 +296,7 @@ int decrypt_gw_lora_message() {
   for (byte i = 0; i<my_vector.datasize; i++) { 
     msg_in[i] = my_vector.plaintext[i];
   }
+  msg_in_byte_counter = my_vector.datasize;
   return 0;
 }
 
@@ -553,26 +576,28 @@ void print_vector(Vector_GCM &vect) {
 // these functions are only needed for BTS-IoT student real live project
 
 void handle_nursing_lora_message() {  
+  log("msg_in[0] " + String(msg_in[0]) + "\n");  
   if (msg_in[0] & 0x40 != 0x40) { //no doorplate address
     return;
   }
   key_addr = msg_in[0] & 0x3F;
-  log("key_addr = " + String(key_addr)+ "\n");  
+  log("key_addr = " + String(key_addr) + "\n");  
   //byte door_addr = msg_in[0] & 0x7F;
-  rssi_k2door = short(msg_in[2]*256 + msg_in[3]); // key to door
+  // get rssi from key to door (reconvert from abs value)
+  rssi_k2door = short((-1)*msg_in[2]); // key to door  
+  log(" RSSI: " + String(rssi_k2door)+ "\n");  
   if ((rssi_k2door>0) || (rssi_k2door<-180)) { // check if valable rssi
     return;
   }  
   rssi_d2gateway = LoRa.packetRssi();
   log("message counter = " + String(msg_in_byte_counter) + " RSSI: " + String(rssi_d2gateway)+ "\n");  
   // check if Alarm!!
-  if (msg_in_byte_counter == 4) { // Alarm or open door
-  log("???????????????4\n");
+  if (msg_in_byte_counter == 3) { // Alarm or open door  
     if ((msg_in[0] & 0x80) == 0x80) { //Alarm          
       log("!!!Alarm!!! from key nr: " + String(key_addr) + "\n");
       publish_alarm_message(); 
     }
-    if (msg_in[1] == 0xFF) { // open door      
+    if ((msg_in[1] & 0x01) == 0x01) { // open door      
       log("Open door nr:" + String(key_addr) + "\n");
       publish_open_door_message(); 
     }
@@ -642,10 +667,10 @@ void publish_key_rssi_data_message() {
   String key_nr ="";
   get_time();
   doc["datetime"] = my.datetime;  
-  for (byte i = STARTBYTE_OF_KEY_RSSI_DATA; i<MAX_BYTE_MSG_IN; i=i+3) {
+  for (byte i = STARTBYTE_OF_KEY_RSSI_DATA; i<MAX_BYTE_MSG_IN; i=i+2) {
     if (msg_in[i] != 0) {      
-      key_nr = String(((i-STARTBYTE_OF_KEY_RSSI_DATA)/3)+1) + KEY + String(msg_in[i]);
-      rssi = short(msg_in[i+1]*256 + msg_in[i+2]); // key to door
+      key_nr = String(((i-STARTBYTE_OF_KEY_RSSI_DATA)/2)+1) + KEY + String(msg_in[i]);
+      rssi = short((-1)*msg_in[i+1]); // key to door
       doc[key_nr] = rssi;
     }      
   }  

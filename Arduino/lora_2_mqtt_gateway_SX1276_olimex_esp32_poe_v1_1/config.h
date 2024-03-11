@@ -50,7 +50,11 @@ struct My_Timeinfo {
 } my;
 
 /****** MQTT settings ******/
-const char *MQTT_SERVER_IP = "192.168.130.160";
+#ifdef USE_MQTT_SECURITY
+  const char *MQTT_SERVER_IP = "192.168.130.160";
+#else
+  const char *MQTT_SERVER_IP = "192.168.128.82";
+#endif  //USE_MQTT_SECURITY
 const long PUBLISH_ALIVE_TIME = 60000; //Publishes every in milliseconds
 const int MQTT_MAXIMUM_PACKET_SIZE = 1024; // look in setup()
 // we use a Prefix! "Relip24-"
