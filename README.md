@@ -2,7 +2,7 @@
 
 ![lora2mqtt](png/lora2mqtt_olimex_poe_600.png "lora2mqtt")
 
-## All infos on: <https://www.weigu.lu/microcontroller/lora2mqtt_SX_eth_gateway/index.html>
+## All infos on: <https://www.weigu.lu/microcontroller/lora2mqtt_SX_eth_gw/index.html>
 
 ## Some infos
 
