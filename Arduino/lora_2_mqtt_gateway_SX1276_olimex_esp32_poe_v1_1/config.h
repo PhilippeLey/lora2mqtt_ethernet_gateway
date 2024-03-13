@@ -82,7 +82,7 @@ const byte PIN_MISO = 16; // do not use GPIO2!!
 const byte PIN_MOSI = 13;
 const byte PIN_SCK = 14;
 const byte PIN_SS = 15; //NSS
-const byte PIN_RST = NOT_A_PIN;
+const byte PIN_RST = -1;
 const byte PIN_IRQ = 5 ; //DIO0
 
 const byte GATEWAY_ADDR = 0xFE;              // address of this device

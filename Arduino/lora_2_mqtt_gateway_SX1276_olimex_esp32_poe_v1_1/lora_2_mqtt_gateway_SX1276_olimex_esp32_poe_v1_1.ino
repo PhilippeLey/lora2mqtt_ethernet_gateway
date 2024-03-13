@@ -39,11 +39,11 @@
 */
 
 /****** Defines to costumize the gateway ******/
-#define USE_SECRETS            // if secrets config in lib folder
+//#define USE_SECRETS            // if secrets config in lib folder
 #define SHOW_ALL_LORA_MESSAGES // normally only msgs 1 byte = GATEWAY_ADDR
 #define DEBUG_SERIAL
 #define DEBUG_UDP
-#define USE_AES128_GCM
+//#define USE_AES128_GCM
 //#define USE_MQTT_SECURITY
 #define NURSING                  // BTS-IoT student real live project
 
@@ -265,41 +265,42 @@ void handle_gw_lora_message() {
 }*/
 
 
-int decrypt_gw_lora_message() {
-  String system_title = "";  // get system title (iv_text first 8 Byte)  
-  for (byte i = 0; i<8; i++) { 
-    system_title += String(char(msg_in[i]));
-  }    
-  log("\nSystem_title: " + String(system_title) + "\n");
-  #ifdef NURSING
-    if (system_title != "Nursing!") { // nursing    
-    return -1;
+#ifdef USE_AES128_GCM
+  int decrypt_gw_lora_message() {
+    String system_title = "";  // get system title (iv_text first 8 Byte)  
+    for (byte i = 0; i<8; i++) { 
+      system_title += String(char(msg_in[i]));
+    }    
+    log("\nSystem_title: " + String(system_title) + "\n");
+    #ifdef NURSING
+      if (system_title != "Nursing!") { // nursing    
+      return -1;
+      }
+    #endif // NURSING
+    for (byte i = 0; i<my_vector.ivsize; i++) { // copy iv from msg
+      my_vector.iv[i] = msg_in[i];
+    }    
+    for (byte i = 0; i<my_vector.ivsize; i++) { // copy iv from msg
+      my_vector.iv[i] = msg_in[i];
+    }    
+    my_vector.datasize  = msg_in[my_vector.ivsize];; // copy ciphertxt length
+    // copy cipher to vector 
+    for (byte i = 0; i<my_vector.datasize; i++) { 
+      my_vector.ciphertext[i] = msg_in[my_vector.ivsize+1+i];      
+    }    
+    for (byte i = 0; i<my_vector.tagsize; i++) { // copy tag to msg
+      my_vector.tag[i] = msg_in[i+my_vector.ivsize+1+my_vector.datasize];
     }
-  #endif // NURSING
-  for (byte i = 0; i<my_vector.ivsize; i++) { // copy iv from msg
-    my_vector.iv[i] = msg_in[i];
-  }    
-  for (byte i = 0; i<my_vector.ivsize; i++) { // copy iv from msg
-    my_vector.iv[i] = msg_in[i];
-  }    
-  my_vector.datasize  = msg_in[my_vector.ivsize];; // copy ciphertxt length
-  // copy cipher to vector 
-  for (byte i = 0; i<my_vector.datasize; i++) { 
-    my_vector.ciphertext[i] = msg_in[my_vector.ivsize+1+i];      
-  }    
-  for (byte i = 0; i<my_vector.tagsize; i++) { // copy tag to msg
-    my_vector.tag[i] = msg_in[i+my_vector.ivsize+1+my_vector.datasize];
+    decrypt_text(my_vector); 
+    //print_vector(my_vector);
+    memset(msg_in, 0, sizeof(msg_in)); // clear buffer
+    for (byte i = 0; i<my_vector.datasize; i++) { 
+      msg_in[i] = my_vector.plaintext[i];
+    }
+    msg_in_byte_counter = my_vector.datasize;
+    return 0;
   }
-  decrypt_text(my_vector); 
-  //print_vector(my_vector);
-  memset(msg_in, 0, sizeof(msg_in)); // clear buffer
-  for (byte i = 0; i<my_vector.datasize; i++) { 
-    msg_in[i] = my_vector.plaintext[i];
-  }
-  msg_in_byte_counter = my_vector.datasize;
-  return 0;
-}
-
+#endif //USE_AES128_GCM
 /****** MQTT *****************************************************************/
 
 void publish_alive_message() {
