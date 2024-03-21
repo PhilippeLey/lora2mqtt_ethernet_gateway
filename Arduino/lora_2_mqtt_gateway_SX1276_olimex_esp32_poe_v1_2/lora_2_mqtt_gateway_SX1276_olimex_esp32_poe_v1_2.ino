@@ -644,11 +644,11 @@ void publish_normal_message() {
   DynamicJsonDocument doc(256);
   String mqtt_msg = "";
   get_time();
-  short key_voltage = short(msg_in[4]*256 + msg_in[5]);   
+  short key_voltage = short(msg_in[3]*256 + msg_in[4]);   
   if ((key_voltage>3400) || (key_voltage<1700)) { // one last check
     return;
   }       
-  short doorplate_voltage = short(msg_in[6]*256 + msg_in[7]);
+  short doorplate_voltage = short(msg_in[5]*256 + msg_in[6]);
   doc["datetime"] = my.datetime;  
   doc["key_voltage_mV"] = key_voltage;
   doc["key_rssi_to_door_dBm"] = rssi_k2door;
